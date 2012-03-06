@@ -388,8 +388,7 @@ class RelatedField(ApiField):
     self_referential = False
     help_text = 'A related resource. Can be either a URI or set of nested resource data.'
 
-    #def __init__(self, to, attribute, related_name=None, default=NOT_PROVIDED, null=False, blank=False, readonly=False, full=False, unique=False, help_text=None):
-    def __init__(self, to, attribute, related_name=None, default=NOT_PROVIDED, null=False, blank=False, readonly=False, full=False, unique=False, help_text=None, contenttype_field=None):
+    def __init__(self, to, attribute, related_name=None, default=NOT_PROVIDED, null=False, blank=False, readonly=False, full=False, unique=False, help_text=None, contenttype_field=None, fields=None):
     
         """
         Builds the field and prepares it to access to related data.
@@ -430,6 +429,9 @@ class RelatedField(ApiField):
         field which points to the appropriate contenttype for the relation.
         Dictionary must be provided for ``to`` to provide ``Resource`` mappings
         for possible content types or a ``ValueError`` will be raised.
+        
+        Optionally accepts ``fields`` which can contain the names of the fields
+        that should be included in the result.
         """
         self.instance_name = None
         self._resource = None
@@ -446,6 +448,7 @@ class RelatedField(ApiField):
         self.unique = unique
         self._to_class = None
         self.contenttype_field = contenttype_field
+        self.fields = fields
         
         if self.contenttype_field and not isinstance(self.to, dict):
             raise ValueError(
@@ -543,6 +546,9 @@ class RelatedField(ApiField):
         """
         if not self.full:
             # Be a good netizen.
+            if self.fields:
+                bundle = related_resource.build_bundle(obj=related_resource.instance, request=bundle.request)
+                return related_resource.fields_dehydrate(bundle, self.fields)
             return related_resource.get_resource_uri(bundle)
         else:
             # ZOMG extra data and big payloads.
@@ -675,20 +681,11 @@ class ToOneField(RelatedField):
 
     def __init__(self, to, attribute, related_name=None, default=NOT_PROVIDED, 
                  null=False, blank=False, readonly=False, full=False, 
-                 unique=False, help_text=None, contenttype_field=None):
+                 unique=False, help_text=None, contenttype_field=None, fields=None):
         if isinstance(to, dict):
             if contenttype_field:
                 help_text = 'A single related resource. Can be either a URI or set of nested resource data. If nested resource data is provided, the resource\'s %s must be set.' % contenttype_field.instance_name
-        super(ToOneField, self).__init__(to, attribute, related_name=related_name, default=default, null=null, blank=blank, readonly=readonly, full=full, unique=unique, help_text=help_text, contenttype_field=contenttype_field)
-        
-#    def __init__(self, to, attribute, related_name=None, default=NOT_PROVIDED,
-#                 null=False, blank=False, readonly=False, full=False,
-#                 unique=False, help_text=None):
-#        super(ToOneField, self).__init__(
-#            to, attribute, related_name=related_name, default=default,
-#            null=null, blank=blank, readonly=readonly, full=full,
-#            unique=unique, help_text=help_text
-#        )
+        super(ToOneField, self).__init__(to, attribute, related_name=related_name, default=default, null=null, blank=blank, readonly=readonly, full=full, unique=unique, help_text=help_text, contenttype_field=contenttype_field, fields=fields)
         self.fk_resource = None
 
     def dehydrate(self, bundle):
@@ -761,11 +758,11 @@ class ContentTypeField(ToOneField):
     installed app. Ensure you register ``ContentTypeResource`` with your
     ``Api`` or include ContentTypeResource URLs in another manner.
     """
-    def __init__(self, to=None, attribute="content_type", related_name=None, default=NOT_PROVIDED, null=False, blank=True, readonly=False, full=False, unique=False, help_text=None, contenttype_field=None):
+    def __init__(self, to=None, attribute="content_type", related_name=None, default=NOT_PROVIDED, null=False, blank=True, readonly=False, full=False, unique=False, help_text=None, contenttype_field=None, fields=None):
         from tastypie.resources import ContentTypeResource
         if not to:
             to = ContentTypeResource
-        super(ToOneField, self).__init__(to, attribute, related_name=related_name, default=default, null=null, blank=blank, readonly=readonly, full=full, unique=unique, help_text=help_text, contenttype_field=contenttype_field)
+        super(ToOneField, self).__init__(to, attribute, related_name=related_name, default=default, null=null, blank=blank, readonly=readonly, full=full, unique=unique, help_text=help_text, contenttype_field=contenttype_field, fields=fields)
         self.fk_resource = None
 
 class ToManyField(RelatedField):
@@ -787,11 +784,11 @@ class ToManyField(RelatedField):
 
     def __init__(self, to, attribute, related_name=None, default=NOT_PROVIDED,
                  null=False, blank=False, readonly=False, full=False,
-                 unique=False, help_text=None):
+                 unique=False, help_text=None, fields=None):
         super(ToManyField, self).__init__(
             to, attribute, related_name=related_name, default=default,
             null=null, blank=blank, readonly=readonly, full=full,
-            unique=unique, help_text=help_text
+            unique=unique, help_text=help_text, fields=fields
         )
         self.m2m_bundles = []
 

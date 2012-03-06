@@ -675,6 +675,29 @@ class Resource(object):
         bundle = self.dehydrate(bundle)
         return bundle
 
+    def fields_dehydrate(self, bundle, fields):
+        """
+        Given a bundle with an object instance, extract the information from it
+        to populate the resource.
+        """
+        for field_name in fields:
+            if field_name in self.fields:
+                field_object = self.fields[field_name]
+                field_object.api_name = self._meta.api_name
+                field_object.resource_name = self._meta.resource_name
+
+                bundle.data[field_name] = field_object.dehydrate(bundle)
+
+                # Check for an optional method to do further dehydration.
+                method = getattr(self, "dehydrate_%s" % field_name, None)
+
+                if method:
+                    bundle.data[field_name] = method(bundle)
+
+        bundle.data['resource_uri'] = self.get_resource_uri(bundle)
+        bundle = self.dehydrate(bundle)
+        return bundle
+
     def dehydrate(self, bundle):
         """
         A hook to allow a final manipulation of data once all fields/methods
